@@ -11,7 +11,7 @@ API for generating valid item combinations based on group constraints.
 ## Install dependencies
 npm install
 
-### Create .env file for configuration
+## Create .env file for configuration
 ### DB_HOST=
 ### DB_USER=
 ### DB_PASSWORD=
