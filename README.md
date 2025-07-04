@@ -12,11 +12,11 @@ API for generating valid item combinations based on group constraints.
 npm install
 
 # Create .env file for configuration
-# DB_HOST=localhost
-# DB_USER=root
-# DB_PASSWORD=your_mysql_password
-# DB_NAME=combinations_db
-# PORT=3000
+# DB_HOST=
+# DB_USER=
+# DB_PASSWORD=
+# DB_NAME=
+# PORT=
 
 
 # Start the application
