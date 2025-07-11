@@ -4,7 +4,7 @@ const Response = require('../models/Response');
 
 const setupDatabase = async (pool) => {
     const connection = await pool.getConnection();
-    
+
     try {
         await connection.beginTransaction();
 
@@ -58,25 +58,17 @@ class CombinationsService {
         this.responseModel = new Response(pool);
     }
 
-    /**
-     * Generates items from input array.
-     */
     generateItems(inputArray) {
         const items = [];
-        let letterIndex = 0;
-        
+        let prefixCharCode = 65; 
+
         for (const count of inputArray) {
-            const letter = String.fromCharCode(65 + letterIndex);
-            
+            const prefix = String.fromCharCode(prefixCharCode++);
             for (let i = 1; i <= count; i++) {
-                items.push({
-                    name: `${letter}${i}`,
-                    prefix: letter
-                });
+                items.push({ name: `${prefix}${i}`, prefix });
             }
-            letterIndex++;
         }
-        
+
         return items;
     }
 
@@ -84,71 +76,91 @@ class CombinationsService {
      * Generate all valid combinations of specified length.
      */
     generateCombinations(items, length) {
-        if (length <= 0 || length > items.length) {
-            return [];
+        if (length <= 0) return [];
+
+        const prefixMap = new Map();
+        for (const item of items) {
+            if (!prefixMap.has(item.prefix)) {
+                prefixMap.set(item.prefix, []);
+            }
+            prefixMap.get(item.prefix).push(item.name);
         }
 
-        const combinations = [];
-        
-        const buildCombinations = (startIndex, currentCombination, usedPrefixes) => {
-            if (currentCombination.length === length) {
-                combinations.push([...currentCombination]);
-                return;
-            }
-            
-            for (let i = startIndex; i < items.length; i++) {
-                const item = items[i];
-                
-                if (usedPrefixes.has(item.prefix)) {
-                    continue;
+        const grouped = Array.from(prefixMap.values());
+        if (grouped.length < length) return [];
+
+        const result = [];
+
+        const kCombinations = (arr, k) => {
+            const res = [];
+            const combine = (start, path) => {
+                if (path.length === k) {
+                    res.push([...path]);
+                    return;
                 }
-                
-                currentCombination.push(item.name);
-                usedPrefixes.add(item.prefix);
-                
-                buildCombinations(i + 1, currentCombination, usedPrefixes);
-                
-                currentCombination.pop();
-                usedPrefixes.delete(item.prefix);
-            }
+
+                for (let i = start; i < arr.length; i++) {
+                    path.push(arr[i]);
+                    combine(i + 1, path);
+                    path.pop();
+                }
+            };
+            combine(0, []);
+            return res;
         };
-        
-        buildCombinations(0, [], new Set());
-        return combinations;
+
+        const cartesian = (arrays) => {
+            return arrays.reduce((acc, curr) => {
+                const temp = [];
+                for (const a of acc) {
+                    for (const b of curr) {
+                        temp.push([...a, b]);
+                    }
+                }
+                return temp;
+            }, [[]]);
+        };
+
+        const prefixCombos = kCombinations(grouped, length);
+        for (const groupSet of prefixCombos) {
+            result.push(...cartesian(groupSet));
+        }
+
+        return result;
     }
 
     async processRequest(inputArray, length, ipAddress) {
         const startTime = process.hrtime();
-        
+
         try {
             const items = this.generateItems(inputArray);
-            
+
             await this.itemModel.createItems(items);
-            
+
             const combinations = this.generateCombinations(items, length);
-            
+
             const [seconds, nanoseconds] = process.hrtime(startTime);
             const processingTime = seconds * 1000 + nanoseconds / 1000000;
-            
+
             const responseData = {
-                combination: combinations
-            };
-            
+                 combination: combinations 
+                };
+
             const responseId = await this.responseModel.createResponse(
                 { items: inputArray, length },
                 responseData,
                 processingTime,
                 ipAddress
             );
-            
+
             await this.combinationModel.createCombinations(responseId, combinations);
-            
-            return {
+
+            return { 
                 id: responseId,
-                ...responseData
-            };
-            
-        } catch (error) {
+                 ...responseData 
+                };
+
+            } catch (error) {
             console.error('Error processing request:', error);
             throw error;
         }
